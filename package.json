@@ -1,0 +1,32 @@
+{
+  "name": "linkedin-auto-poster",
+  "version": "1.0.0",
+  "description": "AI-powered LinkedIn auto posting tool using BrowserMCP automation",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "nodemon src/index.js",
+    "post-ai-content": "node src/post-ai-content.js"
+  },
+  "keywords": [
+    "linkedin",
+    "automation",
+    "ai",
+    "social-media",
+    "browsermcp",
+    "playwright"
+  ],
+  "author": "AI Automation Assistant",
+  "license": "MIT",
+  "dependencies": {
+    "playwright": "^1.40.0",
+    "openai": "^4.20.0",
+    "dotenv": "^16.3.1",
+    "axios": "^1.6.2",
+    "fs-extra": "^11.2.0",
+    "path": "^0.12.7"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.2"
+  }
+}
