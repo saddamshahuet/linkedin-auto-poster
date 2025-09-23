@@ -1,22 +1,27 @@
-# LinkedIn Auto Poster with AI Content Generation
+# LinkedIn Auto Poster with Enhanced AI Content Generation
 
-An automated LinkedIn posting system using BrowserMCP and AI-generated content for IT solutions and innovation trending topics.
+An automated LinkedIn posting system featuring multi-LLM support, saved post management, and AI-generated content for IT solutions and innovation topics.
 
-## Features
+## 🚀 Features
 
-- 🤖 AI-powered content generation for IT and innovation topics
-- 🌐 Automated LinkedIn posting using BrowserMCP (Playwright fork)
-- 🎯 Targeted hashtag optimization
-- 📊 Support for posts with images and media
-- 🔄 Batch posting capabilities
-- 📈 Analytics and engagement tracking
+- 🤖 **Multi-LLM Support**: Generate content using OpenAI GPT-4 or Ollama (local LLM)
+- 📝 **Smart Content Generation**: AI-powered posts about IT solutions, cybersecurity, and digital transformation
+- 🗂️ **Saved Posts Management**: Read and publish posts from saved files (JSON, TXT, MD formats)
+- 🔄 **Automated LinkedIn Posting**: Browser automation for seamless post publishing
+- 💾 **Content Persistence**: Save generated content for later use
+- 📊 **Post Analytics**: Track and analyze your saved content
+- 🎯 **Custom Prompts**: Generate content with custom prompts and domains
+- � **Secure Configuration**: Environment-based credential management
+- 🌐 **Automated browser interaction**: Direct LinkedIn web interface posting
+- 📈 **Professional formatting**: Optimized hashtags and engaging content structure
 
 ## Prerequisites
 
 - Node.js 18+ installed
 - LinkedIn account with posting permissions
-- OpenAI API key for content generation
-- Browser MCP extension installed and configured
+- OpenAI API key for content generation (optional if using Ollama)
+- Ollama installed locally for local LLM support (optional)
+- Modern web browser for automation
 
 ## Installation
 
@@ -36,46 +41,153 @@ npm install
 cp .env.example .env
 ```
 
-Edit `.env` with your credentials:
-```
-OPENAI_API_KEY=your_openai_api_key_here
+Edit `.env` with your configuration:
+```env
+# LLM Configuration
+LLM_PROVIDER=openai                    # openai or ollama
+OPENAI_API_KEY=your_openai_key_here   # Required for OpenAI
+OLLAMA_API_URL=http://localhost:11434  # Ollama API endpoint
+OLLAMA_MODEL=llama2                    # Ollama model name
+
+# LinkedIn Credentials (for browser automation)
 LINKEDIN_EMAIL=your_linkedin_email
 LINKEDIN_PASSWORD=your_linkedin_password
+
+# Content Configuration
+DEFAULT_DOMAIN=Technology              # Default content domain
+DEFAULT_PROMPT=Generate an engaging LinkedIn post about technology trends
+POSTS_FOLDER=./saved-posts            # Folder for saved posts
+
+# Browser Configuration
+HEADLESS=false                        # Set to true for headless browser
 ```
 
 ## Usage
 
-### Basic Usage
+### 1. Generate and Publish New Content
 
-Run the automated poster:
+Generate and immediately publish AI content:
+```bash
+npm run generate-post
+```
+
+With custom prompt:
+```bash
+node generate-post.js --prompt "Write about AI in healthcare" --domain "Healthcare AI"
+```
+
+Generate multiple posts:
+```bash
+node generate-post.js multiple --count 3 --save
+```
+
+Generate without publishing:
+```bash
+node generate-post.js generate-only --domain "Cybersecurity"
+```
+
+### 2. Publish Saved Posts
+
+List saved posts:
+```bash
+npm run post-from-folder list
+```
+
+Publish a saved post:
+```bash
+npm run post-from-folder publish
+```
+
+Publish multiple saved posts:
+```bash
+npm run post-from-folder publish 3
+```
+
+Show post statistics:
+```bash
+npm run post-from-folder stats
+```
+
+### 3. Traditional Methods
+
+Run the main automation (3 AI-generated posts):
 ```bash
 npm start
 ```
 
-### Generate and Post AI Content
-
-Post AI-generated IT content:
+Post specific AI content types:
 ```bash
 npm run post-ai-content
 ```
 
-### Development Mode
+### 4. LLM Testing
 
-Run with hot reload:
+Test your LLM connection:
 ```bash
-npm run dev
+node generate-post.js test-llm
 ```
 
-## BrowserMCP Integration
+## LLM Configuration
 
-This project uses BrowserMCP (a fork of Playwright) to interact with LinkedIn's web interface. The automation steps include:
+### OpenAI Setup
+1. Get an API key from [OpenAI Platform](https://platform.openai.com/)
+2. Set `LLM_PROVIDER=openai` in your `.env` file
+3. Add your API key: `OPENAI_API_KEY=your_key_here`
 
-1. **Navigation**: Navigate to LinkedIn.com
-2. **Authentication**: Handle login flow
-3. **Post Creation**: Click "Start a post" button
-4. **Content Input**: Type AI-generated content
-5. **Media Upload**: Add images and media files
-6. **Publishing**: Submit posts and handle success dialogs
+### Ollama Setup (Local LLM)
+1. Install [Ollama](https://ollama.ai/) locally
+2. Pull a model: `ollama pull llama2` or `ollama pull mistral`
+3. Set `LLM_PROVIDER=ollama` in your `.env` file
+4. Configure model: `OLLAMA_MODEL=llama2` (or your preferred model)
+5. Ensure Ollama is running: `ollama serve`
+
+## Saved Posts Management
+
+The system supports reading posts from various file formats:
+
+### Supported Formats
+- **JSON**: Structured post data with metadata
+- **TXT**: Plain text posts
+- **MD**: Markdown formatted posts
+
+### File Examples
+
+**JSON Format** (`saved-posts/my-post.json`):
+```json
+{
+  "id": "tech-trends-2024",
+  "topic": "Technology Trends",
+  "content": "🚀 Amazing tech trends...",
+  "timestamp": "2024-01-15T10:00:00.000Z",
+  "hashtags": ["#Tech", "#Innovation"]
+}
+```
+
+**Text Format** (`saved-posts/cybersecurity-post.txt`):
+```text
+🛡️ Cybersecurity trends are evolving rapidly...
+
+Key insights:
+- AI-powered threat detection
+- Zero-trust architecture
+- Advanced analytics
+
+#CyberSecurity #AI #InfoSec
+```
+
+**Markdown Format** (`saved-posts/digital-transformation.md`):
+```markdown
+# Digital Transformation Success
+
+💼 Companies are seeing incredible results...
+
+**Key Benefits:**
+- 45% efficiency improvement
+- $8.2M cost savings
+- 78% downtime reduction
+
+#DigitalTransformation #Innovation
+```
 
 ## AI Content Topics
 
@@ -108,28 +220,23 @@ Set up image generation parameters in `src/config/media.js`.
 linkedin-auto-poster/
 ├── src/
 │   ├── automation/
-│   │   ├── linkedin-browser.js    # BrowserMCP LinkedIn automation
-│   │   └── post-handler.js        # Post creation and management
+│   │   └── linkedin-browser.js        # LinkedIn automation with Playwright
 │   ├── content/
-│   │   ├── ai-generator.js        # AI content generation
-│   │   ├── templates.js           # Post templates
-│   │   └── hashtags.js           # Hashtag optimization
-│   ├── media/
-│   │   ├── image-generator.js     # AI image generation
-│   │   └── poster-images/         # Generated poster images
-│   ├── config/
-│   │   ├── browser.js            # Browser configuration
-│   │   ├── schedule.js           # Posting schedule
-│   │   └── media.js              # Media settings
-│   ├── utils/
-│   │   ├── logger.js             # Logging utilities
-│   │   └── helpers.js            # Helper functions
-│   └── index.js                  # Main application entry
+│   │   ├── ai-generator.js           # Multi-LLM AI content generation
+│   │   ├── post-reader.js            # Saved posts management
+│   │   └── templates.js              # Post templates and hashtags
+│   └── utils/
+│       ├── logger.js                 # Logging utilities
+│       └── helpers.js                # Helper functions
+├── saved-posts/                      # Saved post files (JSON/TXT/MD)
+│   ├── ai-infrastructure-post.json
+│   ├── cybersecurity-trends.txt
+│   └── digital-transformation.md
 ├── data/
-│   ├── posts.json                # Posted content tracking
-│   └── analytics.json            # Engagement analytics
-├── logs/                         # Application logs
-├── .env                         # Environment variables
+│   └── posts.json                    # Posted content tracking
+├── generate-post.js                  # AI post generation script
+├── post-from-folder.js              # Saved posts publishing script
+├── .env.example                      # Environment configuration template
 └── README.md
 ```
 

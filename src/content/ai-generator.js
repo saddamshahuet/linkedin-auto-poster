@@ -1,18 +1,141 @@
 const OpenAI = require('openai');
+const { Ollama } = require('ollama');
 const logger = require('../utils/logger');
 const { aiContentTemplates, hashtagSets } = require('./templates');
 
 class AIContentGenerator {
   constructor() {
-    this.openai = new OpenAI({
-      apiKey: process.env.OPENAI_API_KEY,
+    this.llmProvider = process.env.LLM_PROVIDER || 'openai';
+    
+    // Initialize OpenAI if selected
+    if (this.llmProvider === 'openai' && process.env.OPENAI_API_KEY) {
+      this.openai = new OpenAI({
+        apiKey: process.env.OPENAI_API_KEY,
+      });
+    }
+    
+    // Initialize Ollama if selected
+    if (this.llmProvider === 'ollama') {
+      this.ollama = new Ollama({ 
+        host: process.env.OLLAMA_API_URL || 'http://localhost:11434' 
+      });
+      this.ollamaModel = process.env.OLLAMA_MODEL || 'llama2';
+    }
+    
+    logger.info(`AI Content Generator initialized with provider: ${this.llmProvider}`);
+  }
+
+  async generatePostWithPrompt(customPrompt = null, domain = null) {
+    try {
+      const prompt = customPrompt || process.env.DEFAULT_PROMPT || 'Generate an engaging LinkedIn post about the latest trends in technology';
+      const contentDomain = domain || process.env.DEFAULT_DOMAIN || 'Technology';
+      
+      logger.info(`Generating post with prompt for domain: ${contentDomain}`);
+      
+      const enhancedPrompt = `Create an engaging LinkedIn post about ${contentDomain}.
+
+Prompt: ${prompt}
+
+Requirements:
+- 150-300 words
+- Professional yet engaging tone
+- Include 2-4 relevant emojis
+- Add specific data points or statistics if relevant
+- Include a call-to-action question at the end
+- Focus on business value and insights
+- Make it shareable and discussion-worthy
+
+Structure:
+- Hook with an interesting opening
+- 2-3 key points or insights
+- Business impact or value
+- Engaging question for comments
+
+Make it authentic and valuable for professional audiences.`;
+
+      let content;
+      
+      if (this.llmProvider === 'openai' && this.openai) {
+        content = await this.generateWithOpenAI(enhancedPrompt);
+      } else if (this.llmProvider === 'ollama' && this.ollama) {
+        content = await this.generateWithOllama(enhancedPrompt);
+      } else {
+        throw new Error(`Invalid or unconfigured LLM provider: ${this.llmProvider}`);
+      }
+      
+      // Add relevant hashtags based on domain
+      const hashtags = this.getHashtagsForDomain(contentDomain);
+      const postContent = `${content}\n\n${hashtags.join(' ')}`;
+      
+      logger.info(`Generated post content for domain: ${contentDomain}`);
+      return postContent;
+      
+    } catch (error) {
+      logger.error('Failed to generate post with prompt:', error);
+      return this.getFallbackContent(domain || 'Technology');
+    }
+  }
+
+  async generateWithOpenAI(prompt) {
+    const completion = await this.openai.chat.completions.create({
+      model: "gpt-4",
+      messages: [
+        {
+          role: "system",
+          content: "You are a professional LinkedIn content creator who generates engaging, valuable posts for business audiences."
+        },
+        {
+          role: "user",
+          content: prompt
+        }
+      ],
+      max_tokens: 600,
+      temperature: 0.7,
     });
+
+    return completion.choices[0].message.content;
+  }
+
+  async generateWithOllama(prompt) {
+    const response = await this.ollama.chat({
+      model: this.ollamaModel,
+      messages: [
+        {
+          role: 'system',
+          content: 'You are a professional LinkedIn content creator who generates engaging, valuable posts for business audiences.'
+        },
+        {
+          role: 'user',
+          content: prompt
+        }
+      ],
+    });
+
+    return response.message.content;
+  }
+
+  getHashtagsForDomain(domain) {
+    const domainLower = domain.toLowerCase();
+    
+    if (domainLower.includes('ai') || domainLower.includes('artificial intelligence')) {
+      return hashtagSets.itInnovation;
+    } else if (domainLower.includes('cyber') || domainLower.includes('security')) {
+      return hashtagSets.cybersecurity;
+    } else if (domainLower.includes('cloud')) {
+      return hashtagSets.cloudComputing;
+    } else if (domainLower.includes('machine learning') || domainLower.includes('ml')) {
+      return hashtagSets.machineLearning;
+    } else if (domainLower.includes('digital') || domainLower.includes('transformation')) {
+      return hashtagSets.digitalTransformation;
+    } else {
+      // Default tech hashtags
+      return ['#Technology', '#Innovation', '#Business', '#Leadership', '#Future', '#Growth', '#Insights', '#TechTrends'];
+    }
   }
 
   async generateITInnovationPost(topic = 'AI Infrastructure') {
     try {
-      const templates = aiContentTemplates[topic] || aiContentTemplates['AI Infrastructure'];
-      const hashtags = hashtagSets.itInnovation;
+      logger.info(`Generating IT Innovation post for topic: ${topic}`);
       
       const prompt = `Create an engaging LinkedIn post about ${topic} in IT innovation. 
       
@@ -36,23 +159,17 @@ Topics to potentially cover:
 
 Make it sound authoritative but accessible. Avoid overly technical jargon.`;
 
-      const completion = await this.openai.chat.completions.create({
-        model: "gpt-4",
-        messages: [
-          {
-            role: "system",
-            content: "You are a thought leader in IT innovation and digital transformation. Create compelling LinkedIn posts that generate engagement."
-          },
-          {
-            role: "user",
-            content: prompt
-          }
-        ],
-        max_tokens: 500,
-        temperature: 0.7,
-      });
-
-      const content = completion.choices[0].message.content;
+      let content;
+      
+      if (this.llmProvider === 'openai' && this.openai) {
+        content = await this.generateWithOpenAI(prompt);
+      } else if (this.llmProvider === 'ollama' && this.ollama) {
+        content = await this.generateWithOllama(prompt);
+      } else {
+        content = this.getFallbackContent(topic);
+      }
+      
+      const hashtags = hashtagSets.itInnovation;
       const postContent = `${content}\n\n${hashtags.join(' ')}`;
       
       logger.info(`Generated AI content for topic: ${topic}`);
