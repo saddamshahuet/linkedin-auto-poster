@@ -1,28 +1,18 @@
-const OpenAI = require('openai');
 const { Ollama } = require('ollama');
 const logger = require('../utils/logger');
 const { aiContentTemplates, hashtagSets } = require('./templates');
 
 class AIContentGenerator {
   constructor() {
-    this.llmProvider = process.env.LLM_PROVIDER || 'openai';
+    this.llmProvider = 'ollama'; // Always use Ollama
     
-    // Initialize OpenAI if selected
-    if (this.llmProvider === 'openai' && process.env.OPENAI_API_KEY) {
-      this.openai = new OpenAI({
-        apiKey: process.env.OPENAI_API_KEY,
-      });
-    }
+    // Initialize Ollama
+    this.ollama = new Ollama({ 
+      host: process.env.OLLAMA_API_URL || 'http://localhost:11434' 
+    });
+    this.ollamaModel = process.env.OLLAMA_MODEL || 'llama2';
     
-    // Initialize Ollama if selected
-    if (this.llmProvider === 'ollama') {
-      this.ollama = new Ollama({ 
-        host: process.env.OLLAMA_API_URL || 'http://localhost:11434' 
-      });
-      this.ollamaModel = process.env.OLLAMA_MODEL || 'llama2';
-    }
-    
-    logger.info(`AI Content Generator initialized with provider: ${this.llmProvider}`);
+    logger.info(`AI Content Generator initialized with Ollama (model: ${this.ollamaModel})`);
   }
 
   async generatePostWithPrompt(customPrompt = null, domain = null) {
@@ -55,12 +45,10 @@ Make it authentic and valuable for professional audiences.`;
 
       let content;
       
-      if (this.llmProvider === 'openai' && this.openai) {
-        content = await this.generateWithOpenAI(enhancedPrompt);
-      } else if (this.llmProvider === 'ollama' && this.ollama) {
+      if (this.ollama) {
         content = await this.generateWithOllama(enhancedPrompt);
       } else {
-        throw new Error(`Invalid or unconfigured LLM provider: ${this.llmProvider}`);
+        throw new Error('Ollama is not configured properly');
       }
       
       // Add relevant hashtags based on domain
@@ -74,26 +62,6 @@ Make it authentic and valuable for professional audiences.`;
       logger.error('Failed to generate post with prompt:', error);
       return this.getFallbackContent(domain || 'Technology');
     }
-  }
-
-  async generateWithOpenAI(prompt) {
-    const completion = await this.openai.chat.completions.create({
-      model: "gpt-4",
-      messages: [
-        {
-          role: "system",
-          content: "You are a professional LinkedIn content creator who generates engaging, valuable posts for business audiences."
-        },
-        {
-          role: "user",
-          content: prompt
-        }
-      ],
-      max_tokens: 600,
-      temperature: 0.7,
-    });
-
-    return completion.choices[0].message.content;
   }
 
   async generateWithOllama(prompt) {
@@ -161,9 +129,7 @@ Make it sound authoritative but accessible. Avoid overly technical jargon.`;
 
       let content;
       
-      if (this.llmProvider === 'openai' && this.openai) {
-        content = await this.generateWithOpenAI(prompt);
-      } else if (this.llmProvider === 'ollama' && this.ollama) {
+      if (this.ollama) {
         content = await this.generateWithOllama(prompt);
       } else {
         content = this.getFallbackContent(topic);

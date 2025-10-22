@@ -8,7 +8,15 @@
     "dev": "nodemon src/index.js",
     "post-ai-content": "node src/post-ai-content.js",
     "post-from-folder": "node src/post-from-folder.js",
-    "generate-post": "node src/generate-post.js"
+    "generate-post": "node src/generate-post.js",
+    "scheduler": "node src/scheduler/autonomous-scheduler.js",
+    "post-generator": "node src/scheduler/autonomous-post-generator.js",
+    "post-publisher": "node src/scheduler/autonomous-post-publisher.js",
+    "setup-scheduler": "node src/scheduler/setup-task-scheduler.js",
+    "test-ollama-images": "node test-ollama-images.js",
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage"
   },
   "keywords": [
     "linkedin",
@@ -21,15 +29,33 @@
   "author": "AI Automation Assistant",
   "license": "MIT",
   "dependencies": {
-    "playwright": "^1.40.0",
-    "openai": "^4.20.0",
-    "dotenv": "^16.3.1",
     "axios": "^1.6.2",
+    "cron": "^3.1.6",
+    "dotenv": "^16.3.1",
     "fs-extra": "^11.2.0",
+    "node-schedule": "^2.1.1",
+    "ollama": "^0.5.0",
     "path": "^0.12.7",
-    "ollama": "^0.5.0"
+    "playwright": "^1.40.0"
+  },
+  "optionalDependencies": {
+    "canvas": "^2.11.2",
+    "sharp": "^0.33.2"
   },
   "devDependencies": {
+    "jest": "^30.2.0",
     "nodemon": "^3.0.2"
+  },
+  "jest": {
+    "testEnvironment": "node",
+    "testMatch": [
+      "**/__tests__/**/*.js",
+      "**/?(*.)+(spec|test).js"
+    ],
+    "coverageDirectory": "coverage",
+    "collectCoverageFrom": [
+      "src/**/*.js",
+      "!src/index.js"
+    ]
   }
 }

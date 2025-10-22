@@ -4,8 +4,10 @@ const logger = require('../utils/logger');
 
 class PostReader {
   constructor() {
-    this.postsFolder = process.env.POSTS_FOLDER || './saved-posts';
+    this.postsFolder = process.env.POSTS_FOLDER || './posts';
+    this.savedPostsFolder = './saved-posts'; // Keep backward compatibility
     this.supportedFormats = ['.txt', '.md', '.json'];
+    this.supportedImageFormats = ['.jpg', '.jpeg', '.png', '.gif', '.webp'];
   }
 
   async ensurePostsFolder() {
@@ -17,29 +19,124 @@ class PostReader {
     }
   }
 
-  async getAllSavedPosts() {
+  // NEW: Get all posts from the main posts folder (files and folders)
+  async getAllPostsFromPosts() {
     try {
       await this.ensurePostsFolder();
       
-      const files = await fs.readdir(this.postsFolder);
+      const items = await fs.readdir(this.postsFolder);
+      const posts = [];
+
+      for (const item of items) {
+        const itemPath = path.join(this.postsFolder, item);
+        const itemStats = await fs.stat(itemPath);
+
+        if (itemStats.isDirectory()) {
+          // Post folder with potential media
+          const post = await this.readPostFolder(itemPath);
+          if (post) {
+            posts.push({
+              ...post,
+              foldername: item,
+              folderpath: itemPath,
+              hasMedia: post.mediaFiles && post.mediaFiles.length > 0,
+              type: 'folder'
+            });
+          }
+        } else if (itemStats.isFile() && this.supportedFormats.some(ext => item.toLowerCase().endsWith(ext))) {
+          // Single text post file
+          const post = await this.readPostFile(itemPath);
+          if (post) {
+            posts.push({
+              ...post,
+              filename: item,
+              filepath: itemPath,
+              hasMedia: false,
+              type: 'file'
+            });
+          }
+        }
+      }
+
+      logger.info(`Found ${posts.length} posts in posts folder`);
+      return posts;
+    } catch (error) {
+      logger.error('Failed to get posts from posts folder:', error);
+      return [];
+    }
+  }
+
+  async readPostFolder(folderPath) {
+    try {
+      const files = await fs.readdir(folderPath);
+      
+      // Find the main post content file
+      const contentFiles = files.filter(file => 
+        this.supportedFormats.some(ext => file.toLowerCase().endsWith(ext))
+      );
+
+      if (contentFiles.length === 0) {
+        logger.warn(`No content file found in folder: ${folderPath}`);
+        return null;
+      }
+
+      // Use the first content file found
+      const contentFile = contentFiles[0];
+      const contentPath = path.join(folderPath, contentFile);
+      const post = await this.readPostFile(contentPath);
+
+      if (!post) return null;
+
+      // Find media files
+      const mediaFiles = files.filter(file => 
+        this.supportedImageFormats.some(ext => file.toLowerCase().endsWith(ext))
+      ).map(file => path.join(folderPath, file));
+
+      return {
+        ...post,
+        id: path.basename(folderPath),
+        contentFile,
+        mediaFiles,
+        folderPath
+      };
+    } catch (error) {
+      logger.error(`Failed to read post folder ${folderPath}:`, error);
+      return null;
+    }
+  }
+
+  // BACKWARD COMPATIBILITY: Get posts from saved-posts folder
+  async getAllSavedPosts() {
+    try {
+      // Check if saved-posts folder exists
+      try {
+        await fs.access(this.savedPostsFolder);
+      } catch (error) {
+        logger.info('No saved-posts folder found, using posts folder');
+        return await this.getAllPostsFromPosts();
+      }
+      
+      const files = await fs.readdir(this.savedPostsFolder);
       const postFiles = files.filter(file => 
         this.supportedFormats.some(ext => file.toLowerCase().endsWith(ext))
       );
 
       if (postFiles.length === 0) {
-        logger.info('No saved posts found in folder');
+        logger.info('No saved posts found in saved-posts folder');
         return [];
       }
 
       const posts = [];
       for (const file of postFiles) {
         try {
-          const post = await this.readPostFile(path.join(this.postsFolder, file));
+          const post = await this.readPostFile(path.join(this.savedPostsFolder, file));
           if (post) {
             posts.push({
               ...post,
               filename: file,
-              filepath: path.join(this.postsFolder, file)
+              filepath: path.join(this.savedPostsFolder, file),
+              hasMedia: false,
+              type: 'file'
             });
           }
         } catch (error) {
@@ -172,13 +269,86 @@ class PostReader {
     return posts[Math.floor(Math.random() * posts.length)];
   }
 
-  async savePost(content, topic = 'Generated Post', format = 'json') {
+  
+  async savePostToFolder(content, topic = 'Generated Post', format = 'txt', hasMedia = false) {
     try {
       await this.ensurePostsFolder();
       
       const timestamp = new Date();
+      const folderName = this.generateFolderName(topic, timestamp);
+      const folderPath = path.join(this.postsFolder, folderName);
+      
+      // Create post folder
+      await fs.mkdir(folderPath, { recursive: true });
+      
+      // Save content file
+      const filename = `post.${format}`;
+      const filepath = path.join(folderPath, filename);
+      
+      let fileContent;
+      if (format === 'json') {
+        const postData = {
+          id: folderName,
+          content,
+          topic,
+          timestamp: timestamp.toISOString(),
+          created_at: timestamp.toISOString(),
+          hasMedia
+        };
+        fileContent = JSON.stringify(postData, null, 2);
+      } else {
+        fileContent = content;
+      }
+      
+      await fs.writeFile(filepath, fileContent, 'utf8');
+      logger.info(`Saved post to folder: ${folderPath}`);
+      
+      return {
+        folderPath,
+        folderName,
+        success: true,
+        hasMedia
+      };
+    } catch (error) {
+      logger.error('Failed to save post to folder:', error);
+      return {
+        folderPath: null,
+        folderName: null,
+        success: false,
+        error: error.message
+      };
+    }
+  }
+
+  generateFolderName(topic, timestamp) {
+    // Clean topic for folder name
+    const cleanTopic = topic
+      .toLowerCase()
+      .replace(/[^a-z0-9\s]/g, '')
+      .replace(/\s+/g, '-')
+      .substring(0, 30);
+    
+    const dateStr = timestamp.toISOString().slice(0, 10); // YYYY-MM-DD
+    const timeStr = timestamp.toISOString().slice(11, 19).replace(/:/g, '-'); // HH-MM-SS
+    
+    return `${dateStr}_${timeStr}_${cleanTopic}`;
+  }
+
+  async savePost(content, topic = 'Generated Post', format = 'json') {
+    try {
+      await this.ensurePostsFolder();
+      
+      // Save to saved-posts folder for backward compatibility
+      const timestamp = new Date();
       const filename = this.generateFilename(topic, timestamp, format);
-      const filepath = path.join(this.postsFolder, filename);
+      const filepath = path.join(this.savedPostsFolder, filename);
+      
+      // Ensure saved-posts directory exists
+      try {
+        await fs.access(this.savedPostsFolder);
+      } catch (error) {
+        await fs.mkdir(this.savedPostsFolder, { recursive: true });
+      }
       
       let fileContent;
       
